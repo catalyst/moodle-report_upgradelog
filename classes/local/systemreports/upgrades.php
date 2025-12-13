@@ -86,6 +86,7 @@ class upgrades extends system_report {
             'upgrade:version',
             'upgrade:release',
             'upgrade:timemodified',
+            'upgrade:details',
         ]);
 
         // Default sorting.

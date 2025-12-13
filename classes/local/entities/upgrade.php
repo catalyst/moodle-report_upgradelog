@@ -24,6 +24,7 @@ use core_reportbuilder\local\helpers\format;
 use core_reportbuilder\local\report\{column, filter};
 use core_reportbuilder\local\filters\{date, number};
 use report_upgradelog\version_helper;
+use report_upgradelog\details_helper;
 
 /**
  * Upgrade log entity class implementation
@@ -141,7 +142,21 @@ class upgrade extends base {
             ->set_type(column::TYPE_TIMESTAMP)
             ->add_fields("{$upgradetable}.timemodified")
             ->set_is_sortable(true)
-            ->add_callback([format::class, 'userdate']);
+            ->add_callback(function($timestamp) {
+                return \core_date::strftime(get_string('strftimerecentfull', 'langconfig'), $timestamp);
+            });
+
+        // Details (plugin updates triggered by this core upgrade).
+        $columns[] = (new column(
+            'details',
+            new lang_string('details'),
+            $this->get_entity_name()
+        ))
+            ->add_joins($this->get_joins())
+            ->set_type(column::TYPE_TEXT)
+            ->add_fields("{$upgradetable}.timemodified")
+            ->set_is_sortable(false)
+            ->add_callback([details_helper::class, 'build_details']);
 
         return $columns;
     }
