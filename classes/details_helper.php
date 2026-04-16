@@ -17,104 +17,78 @@
 namespace report_upgradelog;
 
 use core_text;
+use moodle_url;
+use html_writer;
 
 /**
  * Helper class for plugin updates and installation details.
  *
  * @package    report_upgradelog
- * @copyright  2025 Alex Damsted <alexdamsted@gmail.com>
+ * @copyright  2025 Alex Damsted <alexdamsted@catalyst-au.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class details_helper {
-
     /**
-     * Generates the collapsible region HTML containing plugin updates
-     * and installations related to a core Moodle upgrade.
+     * Build link to plugin upgrade details report.
      *
-     * @param mixed $value Unused (default column value)
-     * @param \stdClass $row Row data from reportbuilder
+     * @param string $value Unused
+     * @param \stdClass $row Report row
      * @return string
      */
-    public static function build_details($value, \stdClass $row): string {
+    public static function build_details(string $value, \stdClass $row): string {
         global $DB;
 
-        $pluginupdatedcount   = 0;
-        $plugininstalledcount = 0;
-
-        // Core upgrade time window (60s).
-        $coretime = (int)($row->timemodified ?? 0);
-        $start    = $coretime;
-        $end      = $coretime + 60;
-
-        // Find plugin upgrade/install events.
-        list($infosql, $infoparams) = $DB->get_in_or_equal(
-            ['Starting plugin upgrade', 'Starting plugin installation'],
-            SQL_PARAMS_NAMED,
-            'info_'
-        );
-
-        $pluginupdates = $DB->get_records_select(
-            'upgrade_log',
-            "info {$infosql} AND timemodified >= :start AND timemodified < :end",
-            array_merge($infoparams, [
-                'start' => $start,
-                'end'   => $end,
-            ]),
-            'timemodified ASC',
-            'plugin, version, targetversion, timemodified'
-        );
-
-        // Build Moodle html_table.
-        $table = new \html_table();
-        $table->head = [
-            get_string('plugin'),
-            get_string('versionold', 'report_upgradelog'),
-            get_string('versionnew', 'report_upgradelog'),
-            get_string('time'),
-        ];
-
-        // Bootstrap classes.
-        $table->attributes['class'] = 'table table-sm w-auto mb-0';
-
-        foreach ($pluginupdates as $p) {
-
-            $isinstall = empty($p->version);
-
-            if ($isinstall) {
-                $plugininstalledcount++;
-                $rowclass = 'table-success'; // light green
-            } else {
-                $pluginupdatedcount++;
-                $rowclass = 'table-warning'; // light yellow
-            }
-
-            $row = new \html_table_row([
-                s($p->plugin ?? ''),
-                s($p->version ?? ''),
-                s($p->targetversion ?? ''),
-                \core_date::strftime(get_string('strftimetime', 'langconfig'), $p->timemodified),
-            ]);
-
-            $row->attributes['class'] = $rowclass;
-            $table->data[] = $row;
+        if (empty($row->timemodified)) {
+            return '';
         }
 
-        $innerhtml = \html_writer::table($table);
+        $start = (int)$row->timemodified;
+        $end   = $start + 60;
 
-        // Unique region ID for collapsible element.
-        $regionid = 'upgrade_details_' . ($row->upgradeid ?? uniqid());
+        // Count plugin installs vs upgrades in the time window.
+        $sql = "
+        SELECT
+            SUM(CASE WHEN version IS NULL OR version = '' THEN 1 ELSE 0 END) AS installed,
+            SUM(CASE WHEN version IS NOT NULL AND version <> '' THEN 1 ELSE 0 END) AS updated
+        FROM {upgrade_log}
+        WHERE plugin <> :core
+          AND info IN (:installinfo, :upgradeinfo)
+          AND timemodified >= :start
+          AND timemodified < :end
+    ";
 
-        return \print_collapsible_region(
-            $innerhtml,
-            'upgrade-details-region collapsed',
-            $regionid,
-            $summary = get_string('upgradepluginsummary', 'report_upgradelog', (object)[
-                'installed' => $plugininstalledcount,
-                'updated'   => $pluginupdatedcount,
-            ]),
-            '',
-            false,
-            true
+        $params = [
+            'core'        => 'core',
+            'installinfo' => 'Starting plugin installation',
+            'upgradeinfo' => 'Starting plugin upgrade',
+            'start'       => $start,
+            'end'         => $end,
+        ];
+
+        $counts = $DB->get_record_sql($sql, $params);
+
+        $installed = (int)($counts->installed ?? 0);
+        $updated   = (int)($counts->updated ?? 0);
+
+        // If nothing happened, don’t show a link.
+        if ($installed === 0 && $updated === 0) {
+            return '';
+        }
+
+        $url = new \moodle_url('/report/upgradelog/details.php', [
+            'start' => $start,
+            'end'   => $end,
+        ]);
+
+        $summary = get_string(
+            'upgradepluginsummary',
+            'report_upgradelog',
+            (object)[
+                'installed' => $installed,
+                'updated'   => $updated,
+            ]
         );
+
+        return format_text($row->info, FORMAT_PLAIN) . ': ' . html_writer::link($url, $summary);
     }
 }
