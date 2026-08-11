@@ -24,11 +24,21 @@
 
 defined('MOODLE_INTERNAL') || die;
 
+$string['durationseconds'] = 'Duration (seconds)';
+$string['endtime'] = 'End time';
+$string['logcount'] = 'Log count';
+$string['plugininstalledcount'] = 'Plugins installed';
 $string['pluginname'] = 'Upgrade log';
+$string['pluginupgradedcount'] = 'Plugins upgraded';
 $string['pluginupgrades'] = 'Plugin upgrades';
 $string['privacy:metadata'] = 'The Upgrade log plugin does not store any personal data';
+$string['starttime'] = 'Start time';
 $string['unknown'] = 'Unknown';
 $string['upgrade'] = 'Upgrade';
+$string['upgradegroupcoreinstalled'] = 'Core installed';
+$string['upgradegroupcoreupgraded'] = 'Core upgraded';
+$string['upgradegroupnocore'] = 'No core upgrade';
+$string['upgradegroups'] = 'Upgrade groups';
 $string['upgradelog:view'] = 'View upgrade log';
 $string['upgradepluginsummary'] = '{$a->installed} installed, {$a->updated} updated';
 $string['upgrades'] = 'Upgrades';
