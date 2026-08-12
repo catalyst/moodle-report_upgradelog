@@ -21,8 +21,8 @@ namespace report_upgradelog\local\systemreports;
 use context_system;
 use core_reportbuilder\system_report;
 use core_reportbuilder\local\entities\user;
-use core_reportbuilder\local\helpers\database;
-use report_upgradelog\local\entities\upgrade;
+use report_upgradelog\local\entities\upgrade_group;
+use report_upgradelog\upgrade_group_helper;
 
 /**
  * Upgrade log system report class implementation
@@ -36,25 +36,20 @@ class upgrades extends system_report {
      * Initialise report
      */
     protected function initialise(): void {
-        global $DB;
-
-        // Set our main table entity.
-        $upgradeentity = new upgrade();
+        // Use the selected upgrade_log row as the main row for each group.
+        $upgradeentity = new upgrade_group();
         $upgradetable = $upgradeentity->get_table_alias('upgrade_log');
 
         $this->set_main_table('upgrade_log', $upgradetable);
         $this->add_entity($upgradeentity);
 
-        // Restrict to only core install/upgrade logs.
-        [$infoselect, $params] = $DB->get_in_or_equal(
-            ['Core installed', 'Core upgraded'],
-            SQL_PARAMS_NAMED,
-            database::generate_param_name('_'),
-        );
-
-        $paramplugin = database::generate_param_name();
-        $select = "{$upgradetable}.plugin = :{$paramplugin} AND {$DB->sql_compare_text("{$upgradetable}.info")} {$infoselect}";
-        $this->add_base_condition_sql($select, array_merge($params, [$paramplugin => 'core']));
+        // Divide the complete log into sessions whenever the gap between two
+        // adjacent entries exceeds 60 seconds. Aggregate only the requested
+        // four final status messages from each session.
+        [$groupquery, $groupparams] = upgrade_group_helper::get_query();
+        $groupsql = 'JOIN (' . $groupquery . ") ug
+                          ON ug.selectedid = {$upgradetable}.id";
+        $this->add_join($groupsql, $groupparams);
 
         // Join the user entity.
         $userentity = new user();
@@ -82,14 +77,14 @@ class upgrades extends system_report {
     protected function add_columns(): void {
         $this->add_columns_from_entities([
             'user:fullnamewithlink',
-            'upgrade:information',
-            'upgrade:version',
-            'upgrade:release',
-            'upgrade:timemodified',
+            'upgrade_group:information',
+            'upgrade_group:version',
+            'upgrade_group:release',
+            'upgrade_group:timemodified',
         ]);
 
         // Default sorting.
-        $this->set_initial_sort_column('upgrade:timemodified', SORT_DESC);
+        $this->set_initial_sort_column('upgrade_group:timemodified', SORT_DESC);
     }
 
     /**
@@ -98,8 +93,8 @@ class upgrades extends system_report {
     protected function add_filters(): void {
         $this->add_filters_from_entities([
             'user:fullname',
-            'upgrade:version',
-            'upgrade:timemodified',
+            'upgrade_group:version',
+            'upgrade_group:timemodified',
         ]);
     }
 }

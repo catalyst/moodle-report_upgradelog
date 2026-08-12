@@ -3,6 +3,7 @@
 ## Requirements
 
 - Moodle 4.1 or later.
+- PostgreSQL or MySQL 8.0+.
 
 ## Installation
 
