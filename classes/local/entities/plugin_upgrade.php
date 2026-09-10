@@ -23,6 +23,7 @@ use core_reportbuilder\local\entities\base;
 use core_reportbuilder\local\report\column;
 use core_reportbuilder\local\report\filter;
 use core_reportbuilder\local\filters\date;
+use core_reportbuilder\local\filters\autocomplete;
 
 /**
  * Plugin upgrade/install entity.
@@ -122,6 +123,26 @@ class plugin_upgrade extends base {
         $ul = $this->get_table_alias('upgrade_log');
 
         return [
+            (new filter(
+                autocomplete::class,
+                'plugin',
+                new lang_string('plugin'),
+                $this->get_entity_name(),
+                "{$ul}.plugin"
+            ))
+                ->set_options_callback(static function(): array {
+                    global $DB;
+
+                    $plugins = $DB->get_fieldset_sql(
+                        "SELECT DISTINCT plugin
+                           FROM {upgrade_log}
+                          WHERE plugin <> 'core'
+                       ORDER BY plugin"
+                    );
+
+                    return array_combine($plugins, $plugins);
+                }),
+
             (new filter(
                 date::class,
                 'timemodified',

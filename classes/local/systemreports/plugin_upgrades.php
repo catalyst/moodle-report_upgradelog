@@ -96,6 +96,7 @@ class plugin_upgrades extends system_report {
      */
     protected function add_filters(): void {
         $this->add_filters_from_entities([
+            'plugin_upgrade:plugin',
             'plugin_upgrade:timemodified',
         ]);
     }
